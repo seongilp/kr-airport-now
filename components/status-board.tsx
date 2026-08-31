@@ -59,7 +59,7 @@ export function StatusBoard({ initial }: { initial: StatusView }) {
       <header className="sticky top-0 z-10 -mx-4 mb-3 bg-background/80 px-4 pt-5 pb-3 backdrop-blur">
         <div className="flex items-center justify-between gap-2">
           <h1 className="flex items-center gap-2 text-lg font-bold">
-            <Plane className="text-primary size-5" /> 인천공항 지금
+            <Plane className="text-primary size-5" /> 공항 지금
           </h1>
           <button
             type="button"
