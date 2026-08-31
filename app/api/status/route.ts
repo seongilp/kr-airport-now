@@ -22,7 +22,12 @@ export async function GET() {
     });
   } catch (error) {
     // 전체 실패(키 누락 등). 부분 실패는 getStatus 안에서 stale 로 흡수된다.
+    // **실패는 절대 캐시하지 않는다** — no-store 를 명시해 CDN/브라우저가 오류를 붙들지 못하게 한다.
+    // 안 걸면 업스트림이 1분 뒤 살아나도 캐시된 오류를 계속 보게 된다.
     const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json(
+      { error: message },
+      { status: 502, headers: { 'Cache-Control': 'no-store' } },
+    );
   }
 }
