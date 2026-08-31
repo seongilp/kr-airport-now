@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getFlightBoard, FLIGHT_REVALIDATE_SECONDS } from '@/lib/flight-status';
+import { getFlightBoard, revalidateFor } from '@/lib/flight-status';
 import { findAirport } from '@/lib/airports';
 
 /**
  * 공항 운항 보드(도착·출발). `?airport=<코드>` 로 공항을 고른다.
+ * 인천(IIAC)·그 외(KAC) 둘 다 지원하며 CDN TTL 은 소스별로 다르다(revalidateFor).
  * 함수는 서울(icn1)에 둔다(업스트림이 한국) — vercel.json regions 로 처리.
  */
-// 세그먼트 config 는 리터럴. 근거는 FLIGHT_REVALIDATE_SECONDS 주석(300초).
+// 세그먼트 config 는 리터럴이어야 한다. 실제 TTL 은 응답 헤더에서 소스별로 정한다.
 export const revalidate = 300;
 
 export async function GET(request: Request) {
@@ -20,19 +21,13 @@ export async function GET(request: Request) {
       { status: 400, headers: { 'Cache-Control': 'no-store' } },
     );
   }
-  // 인천은 이 서비스(B551178)에 없다 — 주차/출국장 경로(/api/status)로 안내.
-  if (airport.kind !== 'kac') {
-    return NextResponse.json(
-      { error: `${airport.name}은(는) 운항 보드를 지원하지 않습니다.` },
-      { status: 400, headers: { 'Cache-Control': 'no-store' } },
-    );
-  }
 
   try {
     const board = await getFlightBoard(airport.code);
+    const ttl = revalidateFor(airport);
     return NextResponse.json(board, {
       headers: {
-        'Cache-Control': `public, s-maxage=${FLIGHT_REVALIDATE_SECONDS}, stale-while-revalidate=60`,
+        'Cache-Control': `public, s-maxage=${ttl}, stale-while-revalidate=60`,
       },
     });
   } catch (error) {
