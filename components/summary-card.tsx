@@ -3,6 +3,13 @@
 import { Car, DoorOpen } from 'lucide-react';
 import type { TerminalStatus } from '@/lib/incheon-status';
 import type { Gate, ParkingLot } from '@/lib/incheon';
+import { barColor, gateBarColor } from '@/lib/status-style';
+import { cn } from '@/lib/utils';
+
+/** 요약 게이트 대기 막대도 본문과 같은 0~60분 스케일·최소 폭을 쓴다. */
+function waitBarPct(waitMinutes: number): number {
+  return Math.min(100, Math.max(7, (waitMinutes / 60) * 100));
+}
 
 /**
  * 커브사이드 한눈에: '자리 가장 많은 주차장' 과 '대기 가장 짧은 출국장' 만 크게.
@@ -26,6 +33,14 @@ export function SummaryCard({ terminal, now }: { terminal: TerminalStatus; now?:
               {bestLot.free?.toLocaleString('ko-KR')}
               <span className="text-muted-foreground ml-0.5 text-xs font-normal">면 남음</span>
             </p>
+            {bestLot.ratio !== null && (
+              <div className="bg-muted mt-2 h-2 overflow-hidden rounded-full">
+                <div
+                  className={cn('h-full rounded-full', barColor(bestLot.state))}
+                  style={{ width: `${Math.round(bestLot.ratio * 100)}%` }}
+                />
+              </div>
+            )}
           </>
         ) : (
           <p className="text-muted-foreground mt-1.5 text-sm">운영 중인 주차장 정보 없음</p>
@@ -43,6 +58,14 @@ export function SummaryCard({ terminal, now }: { terminal: TerminalStatus; now?:
               {bestGate.waitMinutes}
               <span className="text-muted-foreground ml-0.5 text-xs font-normal">분 대기</span>
             </p>
+            {bestGate.waitMinutes !== null && (
+              <div className="bg-muted mt-2 h-2 overflow-hidden rounded-full">
+                <div
+                  className={cn('h-full rounded-full', gateBarColor(bestGate.state))}
+                  style={{ width: `${waitBarPct(bestGate.waitMinutes)}%` }}
+                />
+              </div>
+            )}
           </>
         ) : (
           <p className="text-muted-foreground mt-1.5 text-sm">운영 중인 출국장 정보 없음</p>

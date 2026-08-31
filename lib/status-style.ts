@@ -61,3 +61,38 @@ export function barColor(state: ParkingState): string {
       return 'bg-zinc-600';
   }
 }
+
+/** 카드 좌측 색 액센트. 리스트를 세로로 훑을 때 상태(비었나/찼나)를 즉시 스캔하게. */
+export function parkingAccent(state: ParkingState): string {
+  switch (state) {
+    case 'free':
+      return 'border-l-emerald-500';
+    case 'normal':
+      return 'border-l-sky-500';
+    case 'busy':
+      return 'border-l-amber-500';
+    case 'full':
+      return 'border-l-rose-500';
+    default:
+      return 'border-l-zinc-600'; // closed / unknown
+  }
+}
+
+/**
+ * 출국장 대기시간 막대 색. 상태와 연동한다(색만으로 말하지 않으니 항상 숫자·라벨과 함께).
+ * 미운영/정보없음은 여기 오지 않는다 — 막대 자체를 그리지 않기 때문(대기 0분처럼 보이면 안 됨).
+ */
+export function gateBarColor(state: GateState): string {
+  switch (state) {
+    case 'free':
+      return 'bg-emerald-500';
+    case 'normal':
+      return 'bg-sky-500';
+    case 'busy':
+      return 'bg-amber-500';
+    case 'crowded':
+      return 'bg-rose-500';
+    default:
+      return 'bg-zinc-600';
+  }
+}

@@ -3,7 +3,7 @@
 import { Car } from 'lucide-react';
 import type { ParkingLot } from '@/lib/incheon';
 import { PARKING_STATE_LABEL } from '@/lib/incheon';
-import { parkingStyle, barColor } from '@/lib/status-style';
+import { parkingStyle, barColor, parkingAccent } from '@/lib/status-style';
 import { Freshness } from './freshness';
 import { cn } from '@/lib/utils';
 
@@ -60,13 +60,19 @@ function LotRow({ lot }: { lot: ParkingLot }) {
   const ratioPct = lot.ratio === null ? 0 : Math.round(lot.ratio * 100);
 
   return (
-    <li className="bg-card rounded-xl border p-3">
+    <li
+      className={cn(
+        // 좌측 색 액센트로 리스트를 훑을 때 어디가 비었는지(초록)·찼는지(빨강) 즉시 스캔.
+        'bg-card rounded-xl border border-l-4 p-3',
+        parkingAccent(lot.state),
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{lot.label}</p>
           {operating ? (
             <p className="text-muted-foreground mt-0.5 text-xs">
-              총 {lot.total?.toLocaleString('ko-KR')}면 · {ratioPct}% 참
+              총 {lot.total?.toLocaleString('ko-KR')}면
             </p>
           ) : (
             <p className="text-muted-foreground mt-0.5 text-xs">
@@ -94,12 +100,19 @@ function LotRow({ lot }: { lot: ParkingLot }) {
         </div>
       </div>
 
+      {/* 채움 비율 게이지. 미운영/정보없음은 그리지 않는다 — 0% 게이지가 '텅 빔'으로 오독되면 안 된다. */}
       {operating && (
-        <div className="bg-muted mt-2.5 h-1.5 overflow-hidden rounded-full">
-          <div
-            className={cn('h-full rounded-full transition-all', barColor(lot.state))}
-            style={{ width: `${ratioPct}%` }}
-          />
+        <div className="mt-2.5 flex items-center gap-2">
+          <div className="bg-muted h-2.5 flex-1 overflow-hidden rounded-full">
+            <div
+              className={cn('h-full rounded-full transition-all', barColor(lot.state))}
+              style={{ width: `${ratioPct}%` }}
+            />
+          </div>
+          {/* 채움 % 를 게이지 옆에 붙여 색만으로 판단하지 않게. */}
+          <span className="text-muted-foreground w-11 shrink-0 text-right text-xs tabular-nums">
+            {ratioPct}% 참
+          </span>
         </div>
       )}
     </li>

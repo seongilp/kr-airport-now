@@ -3,9 +3,20 @@
 import { DoorOpen, Users } from 'lucide-react';
 import type { Gate } from '@/lib/incheon';
 import { GATE_STATE_LABEL } from '@/lib/incheon';
-import { gateStyle } from '@/lib/status-style';
+import { gateStyle, gateBarColor } from '@/lib/status-style';
 import { Freshness } from './freshness';
 import { cn } from '@/lib/utils';
+
+/**
+ * 대기시간 막대 정규화. 0~60분을 0~100%로 본다(60분 이상은 꽉 참).
+ * 운영 중이면 아주 짧은 대기(예: 0~5분)도 눈에 보이게 최소 폭을 준다 —
+ * 단, 이 함수는 '운영 중(대기값 있음)' 게이트에만 쓴다. 미운영/정보없음은 애초에 호출하지 않는다.
+ */
+const WAIT_BAR_CAP_MIN = 60;
+function waitBarPct(waitMinutes: number): number {
+  const raw = (waitMinutes / WAIT_BAR_CAP_MIN) * 100;
+  return Math.min(100, Math.max(7, raw)); // 최소 7% — 원활도 빈 막대로 보이지 않게
+}
 
 /** 대기 짧은 순. 미운영/정보없음은 뒤로. */
 function sortGates(gates: Gate[]): Gate[] {
@@ -74,19 +85,32 @@ function GateCard({ gate }: { gate: Gate }) {
         </span>
       </div>
       {hasWait ? (
-        <p className="mt-1.5 text-2xl leading-none font-bold tabular-nums">
-          {gate.waitMinutes}
-          <span className="text-muted-foreground ml-0.5 text-xs font-normal">분</span>
-        </p>
+        <>
+          <p className="mt-1.5 text-2xl leading-none font-bold tabular-nums">
+            {gate.waitMinutes}
+            <span className="text-muted-foreground ml-0.5 text-xs font-normal">분</span>
+          </p>
+          {/* 대기시간 막대: 짧은 곳/긴 곳이 즉시 비교되게. 상태 색과 연동. */}
+          <div className="bg-muted mt-2 h-2 overflow-hidden rounded-full">
+            <div
+              className={cn('h-full rounded-full transition-all', gateBarColor(gate.state))}
+              style={{ width: `${waitBarPct(gate.waitMinutes as number)}%` }}
+            />
+          </div>
+          {gate.queueLength !== null && gate.queueLength > 0 && (
+            <p className="text-muted-foreground mt-1.5 inline-flex items-center gap-1 text-xs">
+              <Users className="size-3" /> 약 {gate.queueLength.toLocaleString('ko-KR')}명
+            </p>
+          )}
+        </>
       ) : (
-        <p className="text-muted-foreground mt-1.5 text-sm">
-          {gate.state === 'closed' ? '미운영' : '정보 없음'}
-        </p>
-      )}
-      {hasWait && gate.queueLength !== null && gate.queueLength > 0 && (
-        <p className="text-muted-foreground mt-1 inline-flex items-center gap-1 text-xs">
-          <Users className="size-3" /> 약 {gate.queueLength.toLocaleString('ko-KR')}명
-        </p>
+        // 미운영/정보없음: 막대를 그리지 않는다. 빈 막대가 '대기 0분·빠름'처럼 읽히면 안 된다.
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <span className="bg-muted h-2 w-2 rounded-full" aria-hidden />
+          <p className="text-muted-foreground text-sm">
+            {gate.state === 'closed' ? '미운영' : '정보 없음'}
+          </p>
+        </div>
       )}
     </li>
   );
