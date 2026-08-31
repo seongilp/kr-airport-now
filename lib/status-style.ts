@@ -6,6 +6,7 @@
  */
 
 import type { ParkingState, GateState } from './incheon';
+import type { FlightStatus } from './flights';
 
 /** Tailwind 클래스. 다크 기본이라 어두운 배경 위에서 대비가 서게 골랐다. */
 const STYLES = {
@@ -109,5 +110,28 @@ export function gateBarColor(state: GateState): string {
       return 'bg-rose-500';
     default:
       return 'bg-zinc-600';
+  }
+}
+
+/**
+ * 운항 상태 → 배지 색. 같은 팔레트를 재사용해 앱 전체가 색으로 다른 말을 하지 않게 한다.
+ *  - 결항(cancelled): 빨강(주의). 지연(delayed): 호박.
+ *  - 도착/출발(완료): 회색(이미 끝난 편은 눈에 덜 띄게).
+ *  - 탑승(boarding): 초록(지금 가야 하는 편). 예정(scheduled): 파랑.
+ *  - 미정(unknown): 회색.
+ * 색만으로 말하지 않으므로 화면에선 항상 상태 원문(한글) 라벨을 함께 쓴다.
+ */
+export function flightStatusStyle(status: FlightStatus): string {
+  switch (status) {
+    case 'cancelled':
+      return STYLES.heavy;
+    case 'delayed':
+      return STYLES.busy;
+    case 'boarding':
+      return STYLES.free;
+    case 'scheduled':
+      return STYLES.normal;
+    default:
+      return STYLES.muted; // departed / arrived / unknown
   }
 }

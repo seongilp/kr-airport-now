@@ -80,3 +80,43 @@ export function freshnessLabel(epochMs: number, nowMs: number = Date.now()): str
 export function isStaleObservation(epochMs: number, nowMs: number = Date.now()): boolean {
   return nowMs - epochMs > 10 * 60 * 1000;
 }
+
+/* --------------------------- 운항 조회 창(KST) --------------------------- */
+
+/** KST 벽시계 분(0~1439). 서버가 UTC 라도 한국 시각으로 창을 잡아야 한다. */
+function kstMinutes(nowMs: number): number {
+  const kst = new Date(nowMs + KST_OFFSET_MS);
+  return kst.getUTCHours() * 60 + kst.getUTCMinutes();
+}
+
+/**
+ * 오늘(KST) `searchday`(YYYYMMDD). B551178 은 미지정 시 오늘이 아니라 축적분을 주므로
+ * **반드시 명시**해야 한다(실측: 미지정이면 며칠 전 데이터가 섞임).
+ */
+export function kstSearchday(nowMs: number = Date.now()): string {
+  const kst = new Date(nowMs + KST_OFFSET_MS);
+  const y = kst.getUTCFullYear();
+  const mo = String(kst.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(kst.getUTCDate()).padStart(2, '0');
+  return `${y}${mo}${d}`;
+}
+
+/**
+ * '지금' 을 중심으로 한 조회 시간창을 HHMM 두 개로. 업스트림 전량(하루치)을 받지 않고
+ * 근시간대만 받아 쿼터를 아끼는 장치(B551178 `from_time`/`to_time` 는 HHMM 을 받는다).
+ *
+ * 자정을 넘는 창은 하루 경계(searchday 는 하루 단위)를 벗어나므로 **당일 안으로 자른다**
+ * (from 은 00:00, to 는 23:59 로 클램프). 심야엔 다음날 새벽 편이 안 보일 수 있다 — v1 한계.
+ */
+export function kstFlightWindow(
+  nowMs: number = Date.now(),
+  backHours = 1,
+  forwardHours = 6,
+): { from: string; to: string } {
+  const nowMin = kstMinutes(nowMs);
+  const fromMin = Math.max(0, nowMin - backHours * 60);
+  const toMin = Math.min(24 * 60 - 1, nowMin + forwardHours * 60);
+  const hhmm = (m: number) =>
+    `${String(Math.floor(m / 60)).padStart(2, '0')}${String(m % 60).padStart(2, '0')}`;
+  return { from: hhmm(fromMin), to: hhmm(toMin) };
+}
