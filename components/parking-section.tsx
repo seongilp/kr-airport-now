@@ -1,11 +1,27 @@
 'use client';
 
-import { Car } from 'lucide-react';
-import type { ParkingLot } from '@/lib/incheon';
+import { useState } from 'react';
+import dynamic from 'next/dynamic';
+import { Car, List, MapPin } from 'lucide-react';
+import type { ParkingLot, TerminalId } from '@/lib/incheon';
 import { PARKING_STATE_LABEL } from '@/lib/incheon';
 import { parkingStyle, barColor, parkingAccent } from '@/lib/status-style';
 import { Freshness } from './freshness';
 import { cn } from '@/lib/utils';
+
+/**
+ * 지도는 보조 뷰다. 목록이 본체(게이지·대기막대·액센트)이고 커버리지도 터미널별로
+ * 갈리므로(T2 전부·T1 일부), 지도는 기본값이 아니라 **눌러서 여는** 뷰로 둔다.
+ * maplibre 번들도 지도를 열 때만 받도록 dynamic + ssr:false 로 지연 로드한다.
+ */
+const ParkingMap = dynamic(() => import('./parking-map').then((m) => m.ParkingMap), {
+  ssr: false,
+  loading: () => (
+    <div className="bg-muted/40 flex h-[58vh] max-h-[520px] min-h-[300px] items-center justify-center rounded-xl border text-sm text-muted-foreground">
+      지도를 불러오는 중…
+    </div>
+  ),
+});
 
 /** 잔여 많은 순으로. 미운영/정보없음은 맨 뒤로. */
 function sortLots(lots: ParkingLot[]): ParkingLot[] {
@@ -15,15 +31,18 @@ function sortLots(lots: ParkingLot[]): ParkingLot[] {
 
 export function ParkingSection({
   lots,
+  terminal,
   observedAt,
   stale,
   now,
 }: {
   lots: ParkingLot[];
+  terminal: TerminalId;
   observedAt: number | null;
   stale: boolean;
   now?: number;
 }) {
+  const [view, setView] = useState<'list' | 'map'>('list');
   const sorted = sortLots(lots);
 
   return (
@@ -33,7 +52,10 @@ export function ParkingSection({
           <Car className="text-primary size-4" /> 주차장
           <span className="text-muted-foreground font-normal">{lots.length}곳</span>
         </h2>
-        <Freshness observedAt={observedAt} now={now} />
+        <div className="flex items-center gap-2">
+          <Freshness observedAt={observedAt} now={now} />
+          <ViewToggle view={view} onChange={setView} />
+        </div>
       </header>
 
       {stale && (
@@ -44,6 +66,8 @@ export function ParkingSection({
 
       {sorted.length === 0 ? (
         <p className="text-muted-foreground text-sm">주차 정보를 불러오지 못했습니다.</p>
+      ) : view === 'map' ? (
+        <ParkingMap lots={lots} terminal={terminal} />
       ) : (
         <ul className="space-y-2">
           {sorted.map((lot) => (
@@ -52,6 +76,44 @@ export function ParkingSection({
         </ul>
       )}
     </section>
+  );
+}
+
+/** 목록 ⇄ 지도 전환. 목록이 기본값이다. */
+function ViewToggle({
+  view,
+  onChange,
+}: {
+  view: 'list' | 'map';
+  onChange: (v: 'list' | 'map') => void;
+}) {
+  return (
+    <div className="bg-muted flex items-center gap-0.5 rounded-full p-0.5" role="tablist" aria-label="주차장 보기 방식">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === 'list'}
+        onClick={() => onChange('list')}
+        className={cn(
+          'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition',
+          view === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+        )}
+      >
+        <List className="size-3.5" /> 목록
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={view === 'map'}
+        onClick={() => onChange('map')}
+        className={cn(
+          'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition',
+          view === 'map' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+        )}
+      >
+        <MapPin className="size-3.5" /> 지도
+      </button>
+    </div>
   );
 }
 

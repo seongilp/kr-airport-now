@@ -16,6 +16,21 @@ const STYLES = {
   muted: 'bg-zinc-500/10 text-zinc-400 ring-zinc-500/20',
 } as const;
 
+/**
+ * 상태 → 실제 색상값(hex). 지도 마커처럼 Tailwind 클래스를 못 쓰는 곳에서 쓴다.
+ * 위 STYLES(리스트 배지)와 같은 팔레트를 hex 로만 옮긴 것 — 지도와 리스트가 색으로
+ * 다른 말을 하지 않게 여기 한 곳에서만 정의한다(범례가 거짓말이 되는 걸 막는다).
+ *   free=emerald-500 · normal=sky-500 · busy=amber-500 · full=rose-500 · muted=zinc-600
+ */
+export const PARKING_STATE_HEX: Record<ParkingState, string> = {
+  free: '#10b981',
+  normal: '#0ea5e9',
+  busy: '#f59e0b',
+  full: '#f43f5e',
+  closed: '#52525b',
+  unknown: '#52525b',
+};
+
 export function parkingStyle(state: ParkingState): string {
   switch (state) {
     case 'free':

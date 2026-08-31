@@ -6,6 +6,7 @@ import {
   toGate,
   isOperatingNow,
   earliestObservedAt,
+  aggregateParking,
 } from '../incheon';
 import type { RawParking, RawCongestion } from '../incheon-api';
 
@@ -136,5 +137,51 @@ describe('earliestObservedAt', () => {
   });
   it('전부 null 이면 null', () => {
     assert.equal(earliestObservedAt([null, null]), null);
+  });
+});
+
+describe('aggregateParking — 지도 마커용 합산(T2 단기 5개층)', () => {
+  it('운영 중 여러 구역의 총면·잔여를 합산한다', () => {
+    const lots = [
+      toParkingLot(park({ floor: 'T2 단기주차장지상1층', parking: '772', parkingarea: '988' })),
+      toParkingLot(park({ floor: 'T2 단기주차장지상2층', parking: '656', parkingarea: '947' })),
+    ];
+    const agg = aggregateParking(lots);
+    assert.equal(agg.total, 1935);
+    assert.equal(agg.occupied, 1428);
+    assert.equal(agg.free, 507);
+    assert.equal(agg.operatingCount, 2);
+    assert.equal(agg.count, 2);
+  });
+
+  it('미운영(area=0) 구역은 합산에서 빼고, 운영 구역만 더한다', () => {
+    const lots = [
+      toParkingLot(park({ floor: 'T2 단기주차장지상1층', parking: '772', parkingarea: '988' })),
+      toParkingLot(park({ floor: 'T2 단기주차장지상2층', parking: '0', parkingarea: '0' })), // 미운영
+    ];
+    const agg = aggregateParking(lots);
+    assert.equal(agg.total, 988); // 닫힌 층을 0으로 세지 않는다
+    assert.equal(agg.operatingCount, 1);
+    assert.equal(agg.count, 2);
+  });
+
+  it('전부 미운영이면 total=null, 상태 closed (자리 0으로 뭉개지 않는다)', () => {
+    const lots = [
+      toParkingLot(park({ floor: 'T2 단기주차장지상1층', parking: '0', parkingarea: '0' })),
+      toParkingLot(park({ floor: 'T2 단기주차장지상2층', parking: '0', parkingarea: '0' })),
+    ];
+    const agg = aggregateParking(lots);
+    assert.equal(agg.total, null);
+    assert.equal(agg.free, null);
+    assert.equal(agg.state, 'closed');
+  });
+
+  it('전부 결측(빈 총면수)이면 total=null, 상태 unknown', () => {
+    const lots = [
+      toParkingLot(park({ floor: 'T2 단기주차장지상1층', parking: '', parkingarea: '' })),
+    ];
+    const agg = aggregateParking(lots);
+    assert.equal(agg.total, null);
+    assert.equal(agg.state, 'unknown');
   });
 });

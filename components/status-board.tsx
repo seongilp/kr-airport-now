@@ -89,6 +89,7 @@ export function StatusBoard({ initial }: { initial: StatusView }) {
           <SummaryCard terminal={current} now={now} />
           <ParkingSection
             lots={current.lots}
+            terminal={current.id}
             observedAt={current.parkingObservedAt}
             stale={view.health.parking.stale}
             now={now}

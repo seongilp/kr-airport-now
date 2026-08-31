@@ -97,6 +97,55 @@ export function toParkingLot(raw: RawParking): ParkingLot {
   };
 }
 
+export interface ParkingAggregate {
+  total: number | null;
+  occupied: number | null;
+  free: number | null;
+  ratio: number | null;
+  state: ParkingState;
+  /** 합산에 실제로 쓰인(운영 중) 구역 수. */
+  operatingCount: number;
+  /** 합산 대상 전체 구역 수. */
+  count: number;
+}
+
+/**
+ * 여러 구역(예: T2 단기 5개층)을 지도 마커 하나로 묶을 때의 합산.
+ *
+ * 미운영/결측 규칙을 그대로 지킨다 — **운영 중인 구역만 합산**하고, 운영 중이 하나도
+ * 없으면 total 을 null 로 둔다(닫힌 층을 0으로 세어 "자리 0"처럼 보이게 하지 않는다).
+ * 운영 구역이 하나라도 있으면 그것들만 더해 잔여를 낸다.
+ */
+export function aggregateParking(lots: ParkingLot[]): ParkingAggregate {
+  const operating = lots.filter((l) => l.total !== null && l.free !== null);
+  if (operating.length === 0) {
+    // 전부 미운영/결측. 미운영(total=0)이 섞여 있으면 closed, 그마저 없으면 unknown.
+    const anyClosed = lots.some((l) => l.state === 'closed');
+    return {
+      total: null,
+      occupied: null,
+      free: null,
+      ratio: null,
+      state: anyClosed ? 'closed' : 'unknown',
+      operatingCount: 0,
+      count: lots.length,
+    };
+  }
+  const total = operating.reduce((sum, l) => sum + (l.total ?? 0), 0);
+  const occupied = operating.reduce((sum, l) => sum + (l.occupied ?? 0), 0);
+  const free = Math.max(0, total - occupied);
+  const ratio = total > 0 ? Math.min(1, occupied / total) : null;
+  return {
+    total,
+    occupied,
+    free,
+    ratio,
+    state: parkingState(total, free),
+    operatingCount: operating.length,
+    count: lots.length,
+  };
+}
+
 /* ----------------------------- 출국장 ----------------------------- */
 
 export type GateState = 'free' | 'normal' | 'busy' | 'crowded' | 'closed' | 'unknown';
