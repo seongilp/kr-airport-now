@@ -47,12 +47,13 @@ export function ParkingSection({
 
   return (
     <section className="space-y-3">
-      <header className="flex items-center justify-between gap-2">
+      {/* 좁은 폭(모바일)에선 제목 아래로 내려 기준시각·토글이 한 줄에 몰려 접히지 않게 2줄로. sm+ 는 한 줄. */}
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="flex items-center gap-1.5 text-sm font-semibold">
           <Car className="text-primary size-4" /> 주차장
           <span className="text-muted-foreground font-normal">{lots.length}곳</span>
         </h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2 sm:justify-end">
           <Freshness observedAt={observedAt} now={now} />
           <ViewToggle view={view} onChange={setView} />
         </div>

@@ -40,7 +40,8 @@ export function GateSection({
 
   return (
     <section className="space-y-3">
-      <header className="flex items-center justify-between gap-2">
+      {/* 주차 헤더와 같은 규칙: 좁은 폭에선 기준시각을 제목 아래 줄로. sm+ 는 한 줄. */}
+      <header className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
         <h2 className="flex items-center gap-1.5 text-sm font-semibold">
           <DoorOpen className="text-primary size-4" /> 출국장
           <span className="text-muted-foreground font-normal">
