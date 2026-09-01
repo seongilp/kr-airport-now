@@ -101,9 +101,44 @@ export function kstSearchday(nowMs: number = Date.now()): string {
   return `${y}${mo}${d}`;
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * 지금부터 다음 KST 자정까지 남은 '초'. 항상 1 이상(자정 정각이면 86400).
+ *
+ * 왜 필요한가 — 운항 캐시는 `searchday`(하루 단위)에 묶여 있다. 낡은 응답을
+ * 자정 너머까지 stale 로 재사용하면 **어제 날짜의 편**을 오늘인 척 보여 준다(실제로
+ * 두 번 난 하루 밀림 사고). 그래서 CDN 이 stale 을 주더라도 그 창을 KST 자정에서
+ * 잘라, 자정을 넘긴 첫 요청은 새 searchday 로 다시 만들게 한다(cache-control.ts).
+ */
+export function secondsUntilKstMidnight(nowMs: number = Date.now()): number {
+  const kstNow = nowMs + KST_OFFSET_MS;
+  const msIntoDay = ((kstNow % DAY_MS) + DAY_MS) % DAY_MS;
+  return Math.max(1, Math.ceil((DAY_MS - msIntoDay) / 1000));
+}
+
+/**
+ * 조회 시간창을 버킷 경계로 끊는 크기(분). **캐시 키 안정화의 핵심.**
+ *
+ * 왜 필요한가 — `from_time`/`to_time` 가 '지금' 분 단위면 **URL 이 매분 바뀌어**(하루 1440키)
+ * Next Data Cache 키가 매분 회전한다. 그러면 인스턴스 간 공유 캐시가 안 먹고, 콜드 인스턴스마다
+ * 업스트림을 새로 때린다(실측 확인한 근본 원인). `nowMin` 을 15분 경계로 **내림**하면 하루 96키로
+ * 안정돼 **Data Cache 가 인스턴스 간에 공유**된다 — 같은 버킷의 두 번째 요청부터 업스트림 0.
+ *
+ * 왜 15분인가 — 쿼터가 가장 빡빡한 인천 IIAC 의 캐시 신선주기(s-maxage=900초=15분)와 맞춘다.
+ * 키 회전 주기 = 신선 주기라 낭비가 없다(KAC 는 TTL 300초라 한 버킷 안에서 더 자주 갱신되지만
+ * 한도가 10배 넉넉해 흡수된다). 창이 -1h~+6h(7시간)라 15분 내림은 스팬의 3.6%로, 뒤로만 살짝
+ * 넓어지고(from 이 최대 15분 앞당겨짐) **앞쪽 임박편은 절대 빠지지 않는다**(to 는 항상 now+5h↑).
+ */
+const WINDOW_BUCKET_MINUTES = 15;
+
 /**
  * '지금' 을 중심으로 한 조회 시간창을 HHMM 두 개로. 업스트림 전량(하루치)을 받지 않고
  * 근시간대만 받아 쿼터를 아끼는 장치(B551178 `from_time`/`to_time` 는 HHMM 을 받는다).
+ *
+ * **버킷팅**: `nowMin` 을 15분 경계로 내려(WINDOW_BUCKET_MINUTES) URL/캐시 키를 안정시킨다.
+ * `searchday` 는 실제 now 로 따로 계산하므로(kstSearchday) 이 내림이 날짜를 건드리지 않는다
+ * — 00:07 이어도 버킷은 00:00, searchday 는 여전히 오늘. **자정 밀림 없음.**
  *
  * 자정을 넘는 창은 하루 경계(searchday 는 하루 단위)를 벗어나므로 **당일 안으로 자른다**
  * (from 은 00:00, to 는 23:59 로 클램프). 심야엔 다음날 새벽 편이 안 보일 수 있다 — v1 한계.
@@ -113,7 +148,8 @@ export function kstFlightWindow(
   backHours = 1,
   forwardHours = 6,
 ): { from: string; to: string } {
-  const nowMin = kstMinutes(nowMs);
+  // 버킷 경계로 내림 → 15분 동안 같은 창(=같은 URL=같은 Data Cache 키).
+  const nowMin = Math.floor(kstMinutes(nowMs) / WINDOW_BUCKET_MINUTES) * WINDOW_BUCKET_MINUTES;
   const fromMin = Math.max(0, nowMin - backHours * 60);
   const toMin = Math.min(24 * 60 - 1, nowMin + forwardHours * 60);
   const hhmm = (m: number) =>

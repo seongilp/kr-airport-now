@@ -89,4 +89,42 @@ describe('kstSearchday / kstFlightWindow', () => {
     assert.equal(w2.from, '0000');
     assert.equal(w2.to, '0630');
   });
+
+  it('버킷팅 — 같은 15분 버킷 안에서는 창(=URL)이 동일하다', () => {
+    // KST 14:31, 14:37, 14:44 는 모두 14:30 버킷 → 창이 같아야 Data Cache 가 공유된다.
+    const at = (h: number, mi: number) => Date.UTC(2026, 7, 31, h - 9, mi); // KST h:mi
+    const base = kstFlightWindow(at(14, 30), 1, 6);
+    for (const mi of [31, 37, 44]) {
+      const w = kstFlightWindow(at(14, mi), 1, 6);
+      assert.deepEqual(w, base, `14:${mi} 는 14:30 버킷과 같아야 한다`);
+    }
+    assert.equal(base.from, '1330');
+    assert.equal(base.to, '2030');
+  });
+
+  it('버킷팅 — 버킷 경계를 넘으면 창이 15분 전진한다', () => {
+    const at = (h: number, mi: number) => Date.UTC(2026, 7, 31, h - 9, mi);
+    const b1 = kstFlightWindow(at(14, 44), 1, 6); // 14:30 버킷
+    const b2 = kstFlightWindow(at(14, 45), 1, 6); // 14:45 버킷
+    assert.equal(b1.from, '1330');
+    assert.equal(b2.from, '1345');
+    assert.notDeepEqual(b1, b2);
+  });
+
+  it('버킷팅 — 임박한 출발편은 절대 창에서 빠지지 않는다(to 는 항상 now 이후)', () => {
+    // 버킷이 now 를 최대 15분 앞당겨도 to = 버킷+forward 라 now 보다 훨씬 뒤.
+    const at = (h: number, mi: number) => Date.UTC(2026, 7, 31, h - 9, mi);
+    const w = kstFlightWindow(at(14, 44), 1, 5); // 버킷 14:30, forward 5h → to 19:30
+    const toMin = Number(w.to.slice(0, 2)) * 60 + Number(w.to.slice(2));
+    const nowMin = 14 * 60 + 44;
+    assert.ok(toMin > nowMin, `to(${w.to}) 가 now(14:44) 이후여야 임박편이 들어온다`);
+  });
+
+  it('버킷팅 — 자정 직후(00:07)에도 날짜는 오늘, 창은 00:00 버킷', () => {
+    const kst0007 = Date.UTC(2026, 7, 30, 15, 7); // KST 8/31 00:07
+    assert.equal(kstSearchday(kst0007), '20260831'); // 전날로 안 밀림
+    const w = kstFlightWindow(kst0007, 1, 6); // 버킷 00:00 → from clamp 00:00
+    assert.equal(w.from, '0000');
+    assert.equal(w.to, '0600');
+  });
 });

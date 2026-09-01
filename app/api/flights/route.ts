@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getFlightBoard, revalidateFor } from '@/lib/flight-status';
 import { findAirport } from '@/lib/airports';
+import { swrCacheControl } from '@/lib/cache-control';
 
 /**
  * 공항 운항 보드(도착·출발). `?airport=<코드>` 로 공항을 고른다.
@@ -25,9 +26,11 @@ export async function GET(request: Request) {
   try {
     const board = await getFlightBoard(airport.code);
     const ttl = revalidateFor(airport);
+    // s-maxage=ttl(신선 주기, 쿼터 불변) + SWR 는 KST 자정까지 — TTL 이 지나도 CDN 이
+    // 낡은 값을 즉시 주고 뒤에서 갱신한다(느리게 뜨던 콜드 MISS 를 없앤다).
     return NextResponse.json(board, {
       headers: {
-        'Cache-Control': `public, s-maxage=${ttl}, stale-while-revalidate=60`,
+        'Cache-Control': swrCacheControl(ttl),
       },
     });
   } catch (error) {

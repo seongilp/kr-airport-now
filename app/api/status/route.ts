@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getStatus, REVALIDATE_SECONDS } from '@/lib/incheon-status';
+import { swrCacheControl } from '@/lib/cache-control';
 
 /**
  * 클라이언트 자동/수동 새로고침용. 서버 컴포넌트가 첫 페인트를 그리고,
@@ -16,8 +17,9 @@ export async function GET() {
     const view = await getStatus();
     return NextResponse.json(view, {
       headers: {
-        // CDN 에서도 같은 주기로 재검증. 실패는 캐시되지 않는다(getStatus 가 stale 로 방어).
-        'Cache-Control': `public, s-maxage=${REVALIDATE_SECONDS}, stale-while-revalidate=60`,
+        // s-maxage=120(신선 주기, 쿼터 불변) + SWR 는 KST 자정까지 — TTL 이 지나도 CDN 이
+        // 낡은 값을 즉시 주고 뒤에서 갱신한다. 실패는 캐시 안 됨(getStatus 가 stale 로 방어).
+        'Cache-Control': swrCacheControl(REVALIDATE_SECONDS),
       },
     });
   } catch (error) {
