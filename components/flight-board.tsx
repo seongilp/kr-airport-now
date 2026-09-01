@@ -1,12 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PlaneLanding, PlaneTakeoff, RefreshCw } from 'lucide-react';
 import type { FlightBoard as FlightBoardData, FlightSectionHealth } from '@/lib/flight-status';
 import { FLIGHT_STATUS_LABEL, type Flight, type FlightDirection } from '@/lib/flights';
+import { classifyByAirportCode, REGIONS, type Region } from '@/lib/regions';
+import { airlineBadgeColor, parseAirlineCode } from '@/lib/airlines';
 import { flightStatusStyle } from '@/lib/status-style';
 import { formatKstClock, freshnessLabel } from '@/lib/time';
 import { cn } from '@/lib/utils';
+
+/** 권역 필터 값. 'all' 은 전체. */
+type RegionFilter = Region | 'all';
+
+/** 일부 권역 칩에만 대표 국기를 붙인다(단일 국가인 것만; 동남아·유럽·기타는 여러 나라라 생략). */
+const REGION_CHIP_FLAG: Partial<Record<Region, string>> = { 일본: '🇯🇵', 미국: '🇺🇸' };
 
 const CLOCK_TICK_MS = 30_000;
 /** 운항은 5분 캐시라 자동 새로고침도 느긋하게(2분). 캐시 HIT 이면 업스트림을 안 때린다. */
@@ -26,6 +34,7 @@ export function FlightBoard({
 }) {
   const [board, setBoard] = useState<FlightBoardData | null>(initial ?? null);
   const [dir, setDir] = useState<FlightDirection>('departure');
+  const [region, setRegion] = useState<RegionFilter>('all');
   const [now, setNow] = useState<number>(() => Date.now());
   const [loading, setLoading] = useState(!initial);
   const [failed, setFailed] = useState(false);
@@ -64,6 +73,39 @@ export function FlightBoard({
   }, [load, code, initial]);
 
   const flights = board ? (dir === 'arrival' ? board.arrivals : board.departures) : [];
+
+  // 권역 분류는 코드 기반 순수 계산이라 클라이언트에서 건다(서버 왕복 없음). 데이터 로직 불변.
+  const regionCounts = useMemo(() => {
+    const counts: Record<Region, number> = { 일본: 0, 동남아: 0, 미국: 0, 유럽: 0, 기타: 0 };
+    for (const f of flights) counts[classifyByAirportCode(f.counterpartCode).region]++;
+    return counts;
+  }, [flights]);
+
+  // 권역 미상(테이블에 없는 코드) 종류. 조용히 기타에 쌓이지 않게 개발자에게 남긴다.
+  const unmapped = useMemo(() => {
+    const set = new Map<string, string>();
+    for (const f of flights) {
+      const info = classifyByAirportCode(f.counterpartCode);
+      if (!info.mapped) set.set(f.counterpartCode ?? '(코드없음)', f.counterpartName ?? '');
+    }
+    return set;
+  }, [flights]);
+
+  useEffect(() => {
+    if (unmapped.size > 0) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[kr-airport-now] 권역 미매핑 ${unmapped.size}종 — lib/regions.ts 갱신 필요:`,
+        Object.fromEntries(unmapped),
+      );
+    }
+  }, [unmapped]);
+
+  const visibleFlights =
+    region === 'all'
+      ? flights
+      : flights.filter((f) => classifyByAirportCode(f.counterpartCode).region === region);
+
   const health: FlightSectionHealth | null = board
     ? dir === 'arrival'
       ? board.health.arrivals
@@ -127,11 +169,31 @@ export function FlightBoard({
               이 시간대에 표시할 {dir === 'arrival' ? '도착' : '출발'} 항공편이 없습니다.
             </p>
           ) : (
-            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {flights.map((f) => (
-                <FlightRow key={f.key} flight={f} dir={dir} now={now} />
-              ))}
-            </ul>
+            <>
+              <RegionFilter
+                selected={region}
+                counts={regionCounts}
+                total={flights.length}
+                onSelect={setRegion}
+              />
+              {/* 기타 선택 시, 권역을 특정 못 한 편이 섞여 있으면 명시한다(결측을 숨기지 않는다). */}
+              {region === '기타' && unmapped.size > 0 && (
+                <p className="text-muted-foreground text-xs">
+                  권역을 특정하지 못한 {unmapped.size}종의 공항 포함
+                </p>
+              )}
+              {visibleFlights.length === 0 ? (
+                <p className="text-muted-foreground bg-card rounded-xl border p-4 text-sm">
+                  이 시간대에 {region} 권역 {dir === 'arrival' ? '도착' : '출발'} 편이 없습니다.
+                </p>
+              ) : (
+                <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {visibleFlights.map((f) => (
+                    <FlightRow key={f.key} flight={f} dir={dir} now={now} />
+                  ))}
+                </ul>
+              )}
+            </>
           )}
         </>
       )}
@@ -176,9 +238,78 @@ function DirectionToggle({
   );
 }
 
+/**
+ * 권역 필터 칩. 전체 + 사용자가 지정한 5개 권역(일본·동남아·미국·유럽·기타)을 건수와 함께.
+ * 권역 taxonomy 는 고정 — 0건 권역도 숨기지 않고 흐리게(disabled) 둬서 목록이 예측 가능하게.
+ */
+function RegionFilter({
+  selected,
+  counts,
+  total,
+  onSelect,
+}: {
+  selected: RegionFilter;
+  counts: Record<Region, number>;
+  total: number;
+  onSelect: (r: RegionFilter) => void;
+}) {
+  const chip = (value: RegionFilter, label: string, count: number, flag?: string) => {
+    const active = selected === value;
+    const empty = count === 0;
+    return (
+      <button
+        key={value}
+        type="button"
+        role="tab"
+        aria-selected={active}
+        // 0건 권역은 눌러도 소용없으니 비활성. 단 전체는 항상 활성.
+        disabled={empty && value !== 'all'}
+        onClick={() => onSelect(value)}
+        className={cn(
+          'inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition',
+          active
+            ? 'bg-primary text-primary-foreground border-primary'
+            : 'text-muted-foreground hover:text-foreground border-border',
+          empty && value !== 'all' && 'cursor-not-allowed opacity-40 hover:text-muted-foreground',
+        )}
+      >
+        {flag && <span aria-hidden>{flag}</span>}
+        {label}
+        <span className={cn('tabular-nums', active ? 'opacity-80' : 'opacity-60')}>{count}</span>
+      </button>
+    );
+  };
+
+  return (
+    <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="권역 필터">
+      {chip('all', '전체', total)}
+      {REGIONS.map((r) => chip(r, r, counts[r], REGION_CHIP_FLAG[r]))}
+    </div>
+  );
+}
+
+/**
+ * 항공사 코드 배지. 편명 앞 2자(IATA)를 항공사별 결정적 색으로 — 로고 대체.
+ * 로고 CDN(avs.io 등)은 미지원 코드에 404 대신 일반 실루엣을 주고(폴백 불가) 대부분 가로 워드마크라
+ * 305px 카드에 안 맞아, 100% 커버·시프트 0·저작권 무해한 코드 배지를 택했다.
+ */
+function AirlineBadge({ code }: { code: string }) {
+  const { background, color } = airlineBadgeColor(code);
+  return (
+    <span
+      className="inline-flex h-5 shrink-0 items-center rounded px-1.5 text-[10px] font-bold tabular-nums"
+      style={{ background, color }}
+    >
+      {code}
+    </span>
+  );
+}
+
 function FlightRow({ flight, dir, now }: { flight: Flight; dir: FlightDirection; now?: number }) {
   void now;
   const statusLabel = flight.statusText ?? FLIGHT_STATUS_LABEL[flight.status];
+  const airlineCode = parseAirlineCode(flight.flightId);
+  const { flag } = classifyByAirportCode(flight.counterpartCode);
   const cancelled = flight.status === 'cancelled';
   // 지연: 예정과 예상이 다르고 15분 이상 벌어질 때만 예상 시각을 강조한다.
   const showEstimated =
@@ -191,6 +322,8 @@ function FlightRow({ flight, dir, now }: { flight: Flight; dir: FlightDirection;
       {/* 1줄: 편명(+노선 배지)  |  예정 시각. 좁은 카드에서도 1급 정보를 위로. */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
+          {/* 항공사 코드 배지(로고 대체). 파싱 실패하면 배지 없이 편명만. */}
+          {airlineCode && <AirlineBadge code={airlineCode} />}
           <p className="truncate text-sm font-semibold tabular-nums">
             {flight.flightId || '편명 미상'}
           </p>
@@ -214,9 +347,10 @@ function FlightRow({ flight, dir, now }: { flight: Flight; dir: FlightDirection;
         )}
       </div>
 
-      {/* 목적지·항공사: 좁아지면 잘라 버리지 않고 최대 2줄로 접는다. */}
+      {/* 목적지·항공사: 국기(있을 때만) + 방향 화살표 + 목적지 · 항공사. 좁으면 최대 2줄로 접는다. */}
       <p className="text-muted-foreground mt-1 line-clamp-2 text-xs break-words">
         {dir === 'arrival' ? '← ' : '→ '}
+        {flag && <span aria-hidden>{flag} </span>}
         {flight.counterpartName ?? '목적지 미상'}
         {flight.airline ? ` · ${flight.airline}` : ''}
       </p>
