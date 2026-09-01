@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 const ParkingMap = dynamic(() => import('./parking-map').then((m) => m.ParkingMap), {
   ssr: false,
   loading: () => (
-    <div className="bg-muted/40 flex h-[58vh] max-h-[520px] min-h-[300px] items-center justify-center rounded-xl border text-sm text-muted-foreground">
+    <div className="bg-muted/40 flex h-[58vh] max-h-[520px] min-h-[300px] items-center justify-center rounded-xl border text-sm text-muted-foreground lg:h-[64vh] lg:max-h-[680px] lg:min-h-[480px]">
       지도를 불러오는 중…
     </div>
   ),
@@ -67,9 +67,18 @@ export function ParkingSection({
       {sorted.length === 0 ? (
         <p className="text-muted-foreground text-sm">주차 정보를 불러오지 못했습니다.</p>
       ) : view === 'map' ? (
-        <ParkingMap lots={lots} terminal={terminal} />
+        // 데스크톱은 지도가 넓게 쓸모 있으니 지도(좌)+목록(우)을 나란히. 목록은 지도 높이에
+        // 맞춰 내부 스크롤. 모바일/태블릿은 지도만(목록은 토글로 전환) — 나란히 둘 폭이 없다.
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <ParkingMap lots={lots} terminal={terminal} />
+          <ul className="hidden content-start gap-2 xl:grid xl:max-h-[680px] xl:overflow-y-auto xl:pr-1">
+            {sorted.map((lot) => (
+              <LotRow key={lot.name} lot={lot} />
+            ))}
+          </ul>
+        </div>
       ) : (
-        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {sorted.map((lot) => (
             <LotRow key={lot.name} lot={lot} />
           ))}

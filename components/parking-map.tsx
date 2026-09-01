@@ -239,7 +239,7 @@ export function ParkingMap({
 
   return (
     <div className="space-y-2">
-      <div className="relative h-[58vh] max-h-[520px] min-h-[300px] overflow-hidden rounded-xl border">
+      <div className="relative h-[58vh] max-h-[520px] min-h-[300px] overflow-hidden rounded-xl border lg:h-[64vh] lg:max-h-[680px] lg:min-h-[480px]">
         <div ref={containerRef} className="size-full" />
       </div>
 
