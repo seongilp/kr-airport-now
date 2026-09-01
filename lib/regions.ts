@@ -11,11 +11,15 @@
  * 경고로 남긴다(테이블이 낡아도 조용히 기타에 쌓이지 않게).
  */
 
-/** 사용자가 지정한 5개 권역. 임의로 늘리거나 줄이지 않는다. */
-export type Region = '일본' | '동남아' | '미국' | '유럽' | '기타';
+/** 권역. 사용자가 지정한 6개(중화권 = 중국·홍콩·대만·마카오). 임의로 늘리거나 줄이지 않는다. */
+export type Region = '일본' | '중화권' | '동남아' | '미국' | '유럽' | '기타';
 
-/** 칩 노출 순서(전체는 UI에서 앞에 별도로 붙인다). */
-export const REGIONS: Region[] = ['일본', '동남아', '미국', '유럽', '기타'];
+/**
+ * 칩 노출 순서(전체는 UI에서 앞에 별도로 붙인다).
+ * 원칙 = 지리 근접순: 동아시아(일본→중화권)→동남아→미국→유럽→그 외. 건수는 시간대마다 바뀌므로
+ * 순서 기준으로 삼지 않는다(칩 위치가 흔들리면 누르기 나쁘다).
+ */
+export const REGIONS: Region[] = ['일본', '중화권', '동남아', '미국', '유럽', '기타'];
 
 /**
  * IATA 공항 코드 → 국가 ISO 3166-1 alpha-2.
@@ -70,6 +74,8 @@ export const AIRPORT_COUNTRY: Record<string, string> = {
   SVO: 'RU', VVO: 'RU',
 };
 
+/** 중화권 집합(중국·홍콩·대만·마카오). 동남아가 아니고, 사용자가 별도 권역으로 요청했다. */
+const GREATER_CHINA = new Set(['CN', 'HK', 'TW', 'MO']);
 /** 동남아 국가 집합. */
 const SOUTHEAST_ASIA = new Set(['TH', 'PH', 'ID', 'VN', 'SG', 'MY', 'LA', 'KH', 'MM', 'BN']);
 /** 미국 권역(미국 본토 + 미국령). */
@@ -80,9 +86,10 @@ const EUROPE = new Set([
   'DK', 'NO', 'IE', 'CZ', 'HU', 'GR', 'BE', 'HR',
 ]);
 
-/** 국가 ISO2 → 권역. 4개 명명 권역에 안 들어가면 기타(한국·중국·홍콩·대만·중동 등). */
+/** 국가 ISO2 → 권역. 5개 명명 권역에 안 들어가면 기타(한국·중동·중앙아·캐나다·호주 등). */
 export function countryToRegion(country: string): Region {
   if (country === 'JP') return '일본';
+  if (GREATER_CHINA.has(country)) return '중화권';
   if (SOUTHEAST_ASIA.has(country)) return '동남아';
   if (US_REGION.has(country)) return '미국';
   if (EUROPE.has(country)) return '유럽';

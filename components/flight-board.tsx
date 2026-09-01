@@ -76,7 +76,7 @@ export function FlightBoard({
 
   // 권역 분류는 코드 기반 순수 계산이라 클라이언트에서 건다(서버 왕복 없음). 데이터 로직 불변.
   const regionCounts = useMemo(() => {
-    const counts: Record<Region, number> = { 일본: 0, 동남아: 0, 미국: 0, 유럽: 0, 기타: 0 };
+    const counts: Record<Region, number> = { 일본: 0, 중화권: 0, 동남아: 0, 미국: 0, 유럽: 0, 기타: 0 };
     for (const f of flights) counts[classifyByAirportCode(f.counterpartCode).region]++;
     return counts;
   }, [flights]);

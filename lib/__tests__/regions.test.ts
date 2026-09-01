@@ -64,8 +64,14 @@ test('권역 — 유럽', () => {
   }
 });
 
-test('권역 — 기타(한국·중국·홍콩·대만·중앙아시아·캐나다·호주·튀르키예·러시아)', () => {
-  for (const c of ['KR', 'CN', 'HK', 'TW', 'MO', 'KZ', 'KG', 'CA', 'AU', 'NZ', 'TR', 'RU', 'AE', 'QA']) {
+test('권역 — 중화권(중국·홍콩·대만·마카오)', () => {
+  for (const c of ['CN', 'HK', 'TW', 'MO']) {
+    assert.equal(countryToRegion(c), '중화권', `${c} 는 중화권`);
+  }
+});
+
+test('권역 — 기타(한국·중앙아시아·캐나다·호주·튀르키예·러시아·중동)', () => {
+  for (const c of ['KR', 'KZ', 'KG', 'CA', 'AU', 'NZ', 'TR', 'RU', 'AE', 'QA']) {
     assert.equal(countryToRegion(c), '기타', `${c} 는 기타`);
   }
 });
@@ -96,12 +102,18 @@ test('공항 코드 — 미국(LAX·JFK)과 괌(GUM)은 미국', () => {
   assert.equal(gum.flag, '🇬🇺');
 });
 
-test('공항 코드 — 홍콩·대만·알마티는 기타지만 국기는 찍는다(mapped=true)', () => {
+test('공항 코드 — 중화권(홍콩·대만·마카오·중국)은 중화권 + 각 국기', () => {
   const hkg = classifyByAirportCode('HKG');
-  assert.equal(hkg.region, '기타');
+  assert.equal(hkg.region, '중화권');
   assert.equal(hkg.mapped, true);
   assert.equal(hkg.flag, '🇭🇰');
-  assert.equal(classifyByAirportCode('TPE').region, '기타');
+  assert.equal(classifyByAirportCode('TPE').region, '중화권'); // 대만
+  assert.equal(classifyByAirportCode('MFM').region, '중화권'); // 마카오
+  assert.equal(classifyByAirportCode('PEK').region, '중화권'); // 베이징(중국)
+  assert.equal(classifyByAirportCode('PVG').country, 'CN');
+});
+
+test('공항 코드 — 알마티(중앙아)는 기타', () => {
   assert.equal(classifyByAirportCode('ALA').region, '기타');
 });
 
