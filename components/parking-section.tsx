@@ -69,7 +69,7 @@ export function ParkingSection({
       ) : view === 'map' ? (
         <ParkingMap lots={lots} terminal={terminal} />
       ) : (
-        <ul className="space-y-2">
+        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {sorted.map((lot) => (
             <LotRow key={lot.name} lot={lot} />
           ))}
@@ -125,7 +125,7 @@ function LotRow({ lot }: { lot: ParkingLot }) {
     <li
       className={cn(
         // 좌측 색 액센트로 리스트를 훑을 때 어디가 비었는지(초록)·찼는지(빨강) 즉시 스캔.
-        'bg-card rounded-xl border border-l-4 p-3',
+        'bg-card flex h-full flex-col rounded-xl border border-l-4 p-3',
         parkingAccent(lot.state),
       )}
     >
@@ -164,7 +164,7 @@ function LotRow({ lot }: { lot: ParkingLot }) {
 
       {/* 채움 비율 게이지. 미운영/정보없음은 그리지 않는다 — 0% 게이지가 '텅 빔'으로 오독되면 안 된다. */}
       {operating && (
-        <div className="mt-2.5 flex items-center gap-2">
+        <div className="mt-auto flex items-center gap-2 pt-2.5">
           <div className="bg-muted h-2.5 flex-1 overflow-hidden rounded-full">
             <div
               className={cn('h-full rounded-full transition-all', barColor(lot.state))}

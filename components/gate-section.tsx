@@ -59,7 +59,7 @@ export function GateSection({
       {sorted.length === 0 ? (
         <p className="text-muted-foreground text-sm">출국장 정보를 불러오지 못했습니다.</p>
       ) : (
-        <ul className="grid grid-cols-2 gap-2">
+        <ul className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4">
           {sorted.map((gate) => (
             <GateCard key={gate.gateId} gate={gate} />
           ))}

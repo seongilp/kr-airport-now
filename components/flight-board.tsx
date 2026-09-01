@@ -127,7 +127,7 @@ export function FlightBoard({
               이 시간대에 표시할 {dir === 'arrival' ? '도착' : '출발'} 항공편이 없습니다.
             </p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {flights.map((f) => (
                 <FlightRow key={f.key} flight={f} dir={dir} now={now} />
               ))}
@@ -187,57 +187,61 @@ function FlightRow({ flight, dir, now }: { flight: Flight; dir: FlightDirection;
     (flight.delayMinutes ?? 0) >= 5;
 
   return (
-    <li className="bg-card rounded-xl border p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold tabular-nums">{flight.flightId || '편명 미상'}</p>
-            {flight.line && (
-              <span className="text-muted-foreground rounded bg-muted px-1.5 py-0.5 text-[10px]">
-                {flight.line}
-              </span>
-            )}
-          </div>
-          <p className="text-muted-foreground mt-0.5 truncate text-xs">
-            {dir === 'arrival' ? '← ' : '→ '}
-            {flight.counterpartName ?? '목적지 미상'}
-            {flight.airline ? ` · ${flight.airline}` : ''}
+    <li className="bg-card flex h-full flex-col rounded-xl border p-3">
+      {/* 1줄: 편명(+노선 배지)  |  예정 시각. 좁은 카드에서도 1급 정보를 위로. */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <p className="truncate text-sm font-semibold tabular-nums">
+            {flight.flightId || '편명 미상'}
           </p>
+          {flight.line && (
+            <span className="text-muted-foreground shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px]">
+              {flight.line}
+            </span>
+          )}
         </div>
-
-        <div className="shrink-0 text-right">
-          {flight.scheduledAt !== null ? (
-            <p
-              className={cn(
-                'text-lg leading-none font-bold tabular-nums',
-                cancelled && 'text-muted-foreground line-through',
-              )}
-            >
-              {formatKstClock(flight.scheduledAt)}
-            </p>
-          ) : (
-            <p className="text-muted-foreground text-sm">시각 미상</p>
-          )}
-          {showEstimated && (
-            <p className="mt-0.5 text-xs font-medium text-amber-400 tabular-nums">
-              변경 {formatKstClock(flight.estimatedAt as number)}
-              {flight.delayMinutes ? ` (+${flight.delayMinutes}분)` : ''}
-            </p>
-          )}
-          <span
+        {flight.scheduledAt !== null ? (
+          <p
             className={cn(
-              'mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset',
-              flightStatusStyle(flight.status),
+              'shrink-0 text-lg leading-none font-bold tabular-nums',
+              cancelled && 'text-muted-foreground line-through',
             )}
           >
-            {statusLabel}
-          </span>
-        </div>
+            {formatKstClock(flight.scheduledAt)}
+          </p>
+        ) : (
+          <p className="text-muted-foreground shrink-0 text-sm">시각 미상</p>
+        )}
       </div>
 
-      {/* 게이트/수취대: 있을 때만. 결측을 0/미정으로 지어내지 않는다. */}
+      {/* 목적지·항공사: 좁아지면 잘라 버리지 않고 최대 2줄로 접는다. */}
+      <p className="text-muted-foreground mt-1 line-clamp-2 text-xs break-words">
+        {dir === 'arrival' ? '← ' : '→ '}
+        {flight.counterpartName ?? '목적지 미상'}
+        {flight.airline ? ` · ${flight.airline}` : ''}
+      </p>
+
+      {/* 상태 배지 + 지연 강조. 지연(주황)은 이 화면의 핵심이라 눈에 띄게 유지. */}
+      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span
+          className={cn(
+            'inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset',
+            flightStatusStyle(flight.status),
+          )}
+        >
+          {statusLabel}
+        </span>
+        {showEstimated && (
+          <span className="text-xs font-medium text-amber-400 tabular-nums">
+            변경 {formatKstClock(flight.estimatedAt as number)}
+            {flight.delayMinutes ? ` (+${flight.delayMinutes}분)` : ''}
+          </span>
+        )}
+      </div>
+
+      {/* 게이트/수취대(2급): 있을 때만, 카드 맨 아래에 정렬(mt-auto). 결측은 지어내지 않는다. */}
       {(flight.gate || flight.carousel || flight.terminal) && (
-        <div className="text-muted-foreground mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+        <div className="text-muted-foreground mt-auto flex flex-wrap gap-x-3 gap-y-1 pt-2 text-[11px]">
           {flight.terminal && <span>터미널 {flight.terminal}</span>}
           {flight.gate && <span>탑승구 {flight.gate}</span>}
           {flight.carousel && <span>수취대 {flight.carousel}</span>}
