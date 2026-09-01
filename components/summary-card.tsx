@@ -22,19 +22,22 @@ export function SummaryCard({ terminal, now }: { terminal: TerminalStatus; now?:
 
   return (
     <div className="grid grid-cols-2 gap-2">
-      <div className="bg-card rounded-xl border p-3">
+      <div className="bg-card rounded-xl border p-3 sm:p-4">
         <p className="text-muted-foreground inline-flex items-center gap-1 text-xs">
           <Car className="size-3" /> 자리 많은 주차장
         </p>
         {bestLot ? (
           <>
-            <p className="mt-1.5 truncate text-sm font-semibold">{bestLot.label}</p>
-            <p className="text-primary text-xl leading-tight font-bold tabular-nums">
-              {bestLot.free?.toLocaleString('ko-KR')}
-              <span className="text-muted-foreground ml-0.5 text-xs font-normal">면 남음</span>
-            </p>
+            {/* 넓은 화면에선 이름(좌)·잔여수(우)를 양끝으로 벌려 카드가 휑해 보이지 않게. 모바일은 세로 적층. */}
+            <div className="mt-1.5 flex flex-col gap-0.5 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
+              <p className="truncate text-sm font-semibold sm:text-base">{bestLot.label}</p>
+              <p className="text-primary shrink-0 text-xl leading-none font-bold tabular-nums sm:text-2xl">
+                {bestLot.free?.toLocaleString('ko-KR')}
+                <span className="text-muted-foreground ml-0.5 text-xs font-normal">면 남음</span>
+              </p>
+            </div>
             {bestLot.ratio !== null && (
-              <div className="bg-muted mt-2 h-2 overflow-hidden rounded-full">
+              <div className="bg-muted mt-2.5 h-2 overflow-hidden rounded-full">
                 <div
                   className={cn('h-full rounded-full', barColor(bestLot.state))}
                   style={{ width: `${Math.round(bestLot.ratio * 100)}%` }}
@@ -47,19 +50,21 @@ export function SummaryCard({ terminal, now }: { terminal: TerminalStatus; now?:
         )}
       </div>
 
-      <div className="bg-card rounded-xl border p-3">
+      <div className="bg-card rounded-xl border p-3 sm:p-4">
         <p className="text-muted-foreground inline-flex items-center gap-1 text-xs">
           <DoorOpen className="size-3" /> 대기 짧은 출국장
         </p>
         {bestGate ? (
           <>
-            <p className="mt-1.5 truncate text-sm font-semibold">{bestGate.label} 게이트</p>
-            <p className="text-primary text-xl leading-tight font-bold tabular-nums">
-              {bestGate.waitMinutes}
-              <span className="text-muted-foreground ml-0.5 text-xs font-normal">분 대기</span>
-            </p>
+            <div className="mt-1.5 flex flex-col gap-0.5 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
+              <p className="truncate text-sm font-semibold sm:text-base">{bestGate.label} 게이트</p>
+              <p className="text-primary shrink-0 text-xl leading-none font-bold tabular-nums sm:text-2xl">
+                {bestGate.waitMinutes}
+                <span className="text-muted-foreground ml-0.5 text-xs font-normal">분 대기</span>
+              </p>
+            </div>
             {bestGate.waitMinutes !== null && (
-              <div className="bg-muted mt-2 h-2 overflow-hidden rounded-full">
+              <div className="bg-muted mt-2.5 h-2 overflow-hidden rounded-full">
                 <div
                   className={cn('h-full rounded-full', gateBarColor(bestGate.state))}
                   style={{ width: `${waitBarPct(bestGate.waitMinutes)}%` }}
