@@ -8,6 +8,7 @@ import {
   isStaleObservation,
   kstSearchday,
   kstFlightWindow,
+  formatDelta,
 } from '../time';
 
 describe('parseKstStamp — KST 벽시계를 UTC 인스턴트로', () => {
@@ -126,5 +127,30 @@ describe('kstSearchday / kstFlightWindow', () => {
     const w = kstFlightWindow(kst0007, 1, 6); // 버킷 00:00 → from clamp 00:00
     assert.equal(w.from, '0000');
     assert.equal(w.to, '0600');
+  });
+});
+
+describe('formatDelta — 지연/조기 분을 사람이 읽기 좋게', () => {
+  it('60분 미만은 분 단위, 부호 포함', () => {
+    assert.equal(formatDelta(5), '+5분');
+    assert.equal(formatDelta(45), '+45분');
+    assert.equal(formatDelta(-20), '-20분');
+  });
+
+  it('정각 시간은 시간만', () => {
+    assert.equal(formatDelta(60), '+1시간');
+    assert.equal(formatDelta(540), '+9시간');
+    assert.equal(formatDelta(-120), '-2시간');
+  });
+
+  it('시간+분 조합', () => {
+    assert.equal(formatDelta(90), '+1시간 30분');
+    assert.equal(formatDelta(-75), '-1시간 15분');
+  });
+
+  it('0·NaN·소수는 뭉갠다', () => {
+    assert.equal(formatDelta(0), '0분');
+    assert.equal(formatDelta(Number.NaN), '0분');
+    assert.equal(formatDelta(4.6), '+5분');
   });
 });

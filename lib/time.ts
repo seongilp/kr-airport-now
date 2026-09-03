@@ -156,3 +156,23 @@ export function kstFlightWindow(
     `${String(Math.floor(m / 60)).padStart(2, '0')}${String(m % 60).padStart(2, '0')}`;
   return { from: hhmm(fromMin), to: hhmm(toMin) };
 }
+
+/* --------------------------- 지연/조기 분(分) 표기 --------------------------- */
+
+/**
+ * 예정 대비 변경 시각의 차이(분)를 사람이 읽기 좋게. 부호는 항상 붙인다(0 은 `0분`).
+ *  - 60분 미만: `+45분`, `-20분`
+ *  - 정각 시간: `+9시간`, `-2시간`
+ *  - 그 외: `+1시간 30분`
+ * 소수·NaN 은 반올림/`0분` 으로 뭉갠다(입력은 lib/flights 의 delayMinutes).
+ */
+export function formatDelta(minutes: number): string {
+  const total = Number.isFinite(minutes) ? Math.round(minutes) : 0;
+  if (total === 0) return '0분';
+  const sign = total < 0 ? '-' : '+';
+  const abs = Math.abs(total);
+  if (abs < 60) return `${sign}${abs}분`;
+  const h = Math.floor(abs / 60);
+  const m = abs % 60;
+  return m === 0 ? `${sign}${h}시간` : `${sign}${h}시간 ${m}분`;
+}

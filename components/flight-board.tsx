@@ -7,7 +7,7 @@ import { FLIGHT_STATUS_LABEL, type Flight, type FlightDirection } from '@/lib/fl
 import { classifyByAirportCode, REGIONS, type Region } from '@/lib/regions';
 import { airlineBadgeColor, parseAirlineCode } from '@/lib/airlines';
 import { flightStatusStyle } from '@/lib/status-style';
-import { formatKstClock, freshnessLabel } from '@/lib/time';
+import { formatDelta, formatKstClock, freshnessLabel } from '@/lib/time';
 import { cn } from '@/lib/utils';
 
 /** 권역 필터 값. 'all' 은 전체. */
@@ -311,11 +311,11 @@ function FlightRow({ flight, dir, now }: { flight: Flight; dir: FlightDirection;
   const airlineCode = parseAirlineCode(flight.flightId);
   const { flag } = classifyByAirportCode(flight.counterpartCode);
   const cancelled = flight.status === 'cancelled';
-  // 지연: 예정과 예상이 다르고 15분 이상 벌어질 때만 예상 시각을 강조한다.
+  // 변경(예상/실제) 시각: 예정과 5분 이상 벌어지면(지연·조기 모두) 변경 시각을 크게, 예정은 취소선으로.
   const showEstimated =
     flight.estimatedAt !== null &&
     flight.scheduledAt !== null &&
-    (flight.delayMinutes ?? 0) >= 5;
+    Math.abs(flight.delayMinutes ?? 0) >= 5;
 
   return (
     <li className="bg-card flex h-full flex-col rounded-xl border p-3">
@@ -333,7 +333,22 @@ function FlightRow({ flight, dir, now }: { flight: Flight; dir: FlightDirection;
             </span>
           )}
         </div>
-        {flight.scheduledAt !== null ? (
+        {showEstimated ? (
+          <div className="flex shrink-0 flex-col items-end gap-0.5">
+            <p
+              className={cn(
+                'text-lg leading-none font-bold text-amber-400 tabular-nums',
+                cancelled && 'text-muted-foreground line-through',
+              )}
+            >
+              {formatKstClock(flight.estimatedAt as number)}
+            </p>
+            <p className="text-muted-foreground text-[11px] leading-none tabular-nums">
+              <s>{formatKstClock(flight.scheduledAt as number)}</s>
+              {flight.delayMinutes ? ` ${formatDelta(flight.delayMinutes)}` : ''}
+            </p>
+          </div>
+        ) : flight.scheduledAt !== null ? (
           <p
             className={cn(
               'shrink-0 text-lg leading-none font-bold tabular-nums',
@@ -355,7 +370,7 @@ function FlightRow({ flight, dir, now }: { flight: Flight; dir: FlightDirection;
         {flight.airline ? ` · ${flight.airline}` : ''}
       </p>
 
-      {/* 상태 배지 + 지연 강조. 지연(주황)은 이 화면의 핵심이라 눈에 띄게 유지. */}
+      {/* 상태 배지. 변경 시각은 우상단 시각 자리에서 보여 주므로 여기선 상태만. */}
       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
         <span
           className={cn(
@@ -365,12 +380,6 @@ function FlightRow({ flight, dir, now }: { flight: Flight; dir: FlightDirection;
         >
           {statusLabel}
         </span>
-        {showEstimated && (
-          <span className="text-xs font-medium text-amber-400 tabular-nums">
-            변경 {formatKstClock(flight.estimatedAt as number)}
-            {flight.delayMinutes ? ` (+${flight.delayMinutes}분)` : ''}
-          </span>
-        )}
       </div>
 
       {/* 게이트/수취대(2급): 있을 때만, 카드 맨 아래에 정렬(mt-auto). 결측은 지어내지 않는다. */}
