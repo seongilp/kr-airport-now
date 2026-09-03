@@ -30,7 +30,7 @@ export function AppShell({ incheonInitial }: { incheonInitial: StatusView }) {
     <div className="mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-4 pb-10">
       <header className="bg-background/80 sticky top-0 z-10 -mx-4 mb-3 space-y-3 px-4 pt-5 pb-3 backdrop-blur">
         <h1 className="flex items-center gap-2 text-lg font-bold">
-          <Plane className="text-primary size-5" /> 공항 지금
+          <Plane className="text-primary size-5" /> 공항나우
         </h1>
         <AirportPicker selected={code} onSelect={setCode} />
         {isIncheon && <IncheonModeToggle mode={incheonMode} onChange={setIncheonMode} />}
