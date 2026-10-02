@@ -69,6 +69,10 @@ export interface Flight {
   terminal: string | null;
   /** 예정 대비 지연 분. 계산 불가면 null. 양수면 지연, 음수면 당김. */
   delayMinutes: number | null;
+  /** 기종(IATA 서브타입, 예: `77F`). 화물기 상세만 준다. 없으면 null. */
+  aircraftType: string | null;
+  /** 주기장 위치. 화물기 상세만 준다. 없으면 null. */
+  stand: string | null;
 }
 
 /** 키를 소문자로 접어 조회한다. 세 서비스의 케이싱 차이를 한 번에 흡수한다. */
@@ -149,6 +153,8 @@ export function toFlight(raw: RawFlight, direction: FlightDirection): Flight {
     carousel: pick(raw, 'carousel'),
     terminal: pick(raw, 'terminalid'),
     delayMinutes,
+    aircraftType: pick(raw, 'aircraftsubtype'),
+    stand: pick(raw, 'fstandposition'),
   };
 }
 

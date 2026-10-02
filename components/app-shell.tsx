@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
  *    운항 탭은 IIAC(B551177)라 눌렀을 때 클라이언트가 /api/flights?airport=ICN 로 받는다.
  *  - 그 외(kac): 운항 보드만(선택 시 클라이언트가 /api/flights 로 받음).
  */
-type IncheonMode = 'status' | 'flights';
+type IncheonMode = 'status' | 'flights' | 'cargo';
 
 export function AppShell({ incheonInitial }: { incheonInitial: StatusView }) {
   const [code, setCode] = useState<string>(DEFAULT_AIRPORT_CODE);
@@ -40,6 +40,8 @@ export function AppShell({ incheonInitial }: { incheonInitial: StatusView }) {
         {isIncheon ? (
           incheonMode === 'status' ? (
             <IncheonBoard initial={incheonInitial} />
+          ) : incheonMode === 'cargo' ? (
+            <FlightBoard key="ICN-CARGO" code="ICN" kind="cargo" />
           ) : (
             <FlightBoard key="ICN" code="ICN" />
           )
@@ -53,7 +55,7 @@ export function AppShell({ incheonInitial }: { incheonInitial: StatusView }) {
   );
 }
 
-/** 인천 하위 탭: 주차·출국장 ⇄ 운항. 인천만 두 소스가 있어 여기서 가른다. */
+/** 인천 하위 탭: 주차·출국장 ⇄ 여객 운항 ⇄ 화물기. 인천만 여러 소스가 있어 여기서 가른다. */
 function IncheonModeToggle({
   mode,
   onChange,
@@ -62,11 +64,12 @@ function IncheonModeToggle({
   onChange: (m: IncheonMode) => void;
 }) {
   return (
-    <div className="bg-muted grid grid-cols-2 gap-1 rounded-full p-1" role="tablist" aria-label="인천 보기 방식">
+    <div className="bg-muted grid grid-cols-3 gap-1 rounded-full p-1" role="tablist" aria-label="인천 보기 방식">
       {(
         [
           ['status', '주차 · 출국장'],
           ['flights', '운항'],
+          ['cargo', '화물기'],
         ] as const
       ).map(([value, label]) => (
         <button
@@ -109,7 +112,7 @@ function Footer({ isIncheon, incheonMode }: { isIncheon: boolean; incheonMode: I
         <>
           <p>
             데이터: 공공데이터포털 운항정보(한국공항공사 B551178 · 인천공항은 인천국제공항공사
-            B551177). 지금 시각 부근의 편만 보여 주며, &lsquo;수신&rsquo; 시각은 서버가 데이터를
+            B551177 · 화물기는 T1·T2 화물기 운항 현황 상세). 지금 시각 부근의 편만 보여 주며, &lsquo;수신&rsquo; 시각은 서버가 데이터를
             받은 시각입니다.
           </p>
           <p>

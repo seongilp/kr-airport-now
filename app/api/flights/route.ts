@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getFlightBoard, revalidateFor } from '@/lib/flight-status';
+import { CARGO_REVALIDATE_SECONDS, getCargoBoard, getFlightBoard, revalidateFor } from '@/lib/flight-status';
 import { findAirport } from '@/lib/airports';
 import { swrCacheControl } from '@/lib/cache-control';
 
@@ -12,7 +12,11 @@ import { swrCacheControl } from '@/lib/cache-control';
 export const revalidate = 300;
 
 export async function GET(request: Request) {
-  const code = new URL(request.url).searchParams.get('airport');
+  const params = new URL(request.url).searchParams;
+  // 인천 화물기(?kind=cargo) — 인천 전용이라 공항 코드와 무관하게 별도 보드
+  if (params.get('kind') === 'cargo') return cargoResponse();
+
+  const code = params.get('airport');
   const airport = findAirport(code);
 
   // 입력 검증: 알 수 없는 공항 → 400. 잘못된 입력을 성공(캐시)으로 만들지 않는다.
@@ -41,5 +45,15 @@ export async function GET(request: Request) {
       { error: message },
       { status: 502, headers: { 'Cache-Control': 'no-store' } },
     );
+  }
+}
+
+async function cargoResponse() {
+  try {
+    const board = await getCargoBoard();
+    return NextResponse.json(board, { headers: { 'Cache-Control': swrCacheControl(CARGO_REVALIDATE_SECONDS) } });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: message }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
   }
 }

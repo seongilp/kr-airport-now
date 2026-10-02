@@ -131,3 +131,33 @@ test('sortByScheduled — 시각 오름차순, 결측은 뒤로', () => {
     ['A', 'B', 'X'],
   );
 });
+
+/* --------------------- 화물기(B551177 statusOfCgoFltDeOdpT1/T2) --------------------- */
+
+test('화물기 — 기종(aircraftSubtype)·주기장(fstandPosition)을 읽는다', () => {
+  const f = toFlight(
+    {
+      fid: 'X1',
+      flightId: 'KE9221',
+      airline: '대한항공',
+      airport: '앵커리지',
+      airportCode: 'ANC',
+      scheduleDatetime: '202610021430',
+      remark: '출발',
+      terminalId: 'C01',
+      aircraftSubtype: '77F',
+      fstandPosition: '651',
+    },
+    'departure',
+  );
+  assert.equal(f.aircraftType, '77F');
+  assert.equal(f.stand, '651');
+  assert.equal(f.counterpartCode, 'ANC');
+  assert.equal(f.status, 'departed');
+});
+
+test('여객편엔 기종·주기장이 없으면 null(지어내지 않는다)', () => {
+  const f = toFlight({ flightId: 'KE1', scheduleDateTime: '202610021430' }, 'departure');
+  assert.equal(f.aircraftType, null);
+  assert.equal(f.stand, null);
+});

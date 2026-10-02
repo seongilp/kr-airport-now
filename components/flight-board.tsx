@@ -27,8 +27,11 @@ const AUTO_REFRESH_MS = 120_000;
 export function FlightBoard({
   code,
   initial,
+  kind = 'passenger',
 }: {
   code: string;
+  /** 'cargo' 면 인천 화물기 보드(/api/flights?kind=cargo). 인천에서만 쓴다. */
+  kind?: 'passenger' | 'cargo';
   /** 서버에서 미리 받아온 보드(있으면 첫 페인트에 씀). 없으면 클라이언트가 받는다. */
   initial?: FlightBoardData;
 }) {
@@ -43,7 +46,8 @@ export function FlightBoard({
     setLoading(true);
     setFailed(false);
     try {
-      const res = await fetch(`/api/flights?airport=${encodeURIComponent(code)}`, {
+      const url = kind === 'cargo' ? '/api/flights?kind=cargo' : `/api/flights?airport=${encodeURIComponent(code)}`;
+      const res = await fetch(url, {
         cache: 'no-store',
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -56,7 +60,7 @@ export function FlightBoard({
     } finally {
       setLoading(false);
     }
-  }, [code]);
+  }, [code, kind]);
 
   useEffect(() => {
     // 마운트 시 초기 데이터가 없으면(또는 다른 공항 값이면) 한 번 받아 온다.
@@ -153,7 +157,9 @@ export function FlightBoard({
         </p>
       ) : health && !health.ok && !health.stale ? (
         <p className="bg-card rounded-xl border p-4 text-sm text-rose-300">
-          운항 정보를 불러오지 못했습니다{health.error ? ` (${health.error.code})` : ''}.
+          {health.error?.code === '30'
+            ? '데이터 사용 승인이 아직 공항 서버에 반영되지 않았습니다. 잠시 후 다시 확인해 주세요. (30)'
+            : `운항 정보를 불러오지 못했습니다${health.error ? ` (${health.error.code})` : ''}.`}
         </p>
       ) : (
         <>
@@ -383,9 +389,11 @@ function FlightRow({ flight, dir, now }: { flight: Flight; dir: FlightDirection;
       </div>
 
       {/* 게이트/수취대(2급): 있을 때만, 카드 맨 아래에 정렬(mt-auto). 결측은 지어내지 않는다. */}
-      {(flight.gate || flight.carousel || flight.terminal) && (
+      {(flight.gate || flight.carousel || flight.terminal || flight.aircraftType || flight.stand) && (
         <div className="text-muted-foreground mt-auto flex flex-wrap gap-x-3 gap-y-1 pt-2 text-[11px]">
           {flight.terminal && <span>터미널 {flight.terminal}</span>}
+          {flight.aircraftType && <span>기종 {flight.aircraftType}</span>}
+          {flight.stand && <span>주기장 {flight.stand}</span>}
           {flight.gate && <span>탑승구 {flight.gate}</span>}
           {flight.carousel && <span>수취대 {flight.carousel}</span>}
         </div>

@@ -23,6 +23,8 @@ import { toFlight, sortByScheduled, type Flight, type FlightDirection } from './
 import { findAirport, type Airport } from './airports';
 import { kstSearchday, kstFlightWindow } from './time';
 import type { DgkFetchResult } from './dgk-api';
+import { fetchCargoFlights } from './cargo-api';
+import { CARGO_TERMINALS, inCargoWindow, withCargoTerminal } from './cargo';
 
 export const KAC_REVALIDATE_SECONDS = 300;
 export const IIAC_REVALIDATE_SECONDS = 900;
@@ -169,5 +171,76 @@ export async function getFlightBoard(airportCode: string): Promise<FlightBoard> 
     });
 
   inflight.set(airportCode, p);
+  return p;
+}
+
+/* ------------------------------ 인천 화물기 ------------------------------ */
+
+/**
+ * 화물기 TTL 30분. 쿼터가 확인되지 않아(인천 여객은 500/일) 보수적으로 잡는다:
+ * 갱신당 T1·T2 × 도착·출발 = 4콜(하루치가 1페이지 안팎) → 48회 × 4 ≈ 192콜/일.
+ */
+export const CARGO_REVALIDATE_SECONDS = 1800;
+const CARGO_MAX_PAGES = 2;
+export const CARGO_BOARD_CODE = 'ICN-CARGO';
+
+/** T1·T2 를 함께 받는다. 한쪽만 실패하면 나머지로 보여 주고, 둘 다 실패해야 실패로 본다. */
+async function fetchCargoDirection(direction: FlightDirection, searchday: string): Promise<Flight[]> {
+  const results = await Promise.allSettled(
+    CARGO_TERMINALS.map(async (t) => {
+      const r = await fetchCargoFlights(t, direction, searchday, CARGO_MAX_PAGES, CARGO_REVALIDATE_SECONDS);
+      return r.items.map((raw) => withCargoTerminal(toFlight(raw, direction), t));
+    }),
+  );
+  const ok = results.filter((r): r is PromiseFulfilledResult<Flight[]> => r.status === 'fulfilled');
+  if (ok.length === 0) throw (results[0] as PromiseRejectedResult).reason;
+  return ok.flatMap((r) => r.value);
+}
+
+async function buildCargo(): Promise<FlightBoard> {
+  const now = Date.now();
+  const searchday = kstSearchday(now);
+  const [arrR, depR] = await Promise.allSettled([
+    fetchCargoDirection('arrival', searchday),
+    fetchCargoDirection('departure', searchday),
+  ]);
+
+  const health = (r: PromiseSettledResult<Flight[]>, key: string): FlightSectionHealth => {
+    if (r.status === 'fulfilled') {
+      lastGood.set(key, { flights: sortByScheduled(r.value) });
+      return { ok: true, stale: false, error: null };
+    }
+    return { ok: false, stale: lastGood.has(key), error: sectionError(r.reason) };
+  };
+  const arrKey = `${CARGO_BOARD_CODE}:arrival`;
+  const depKey = `${CARGO_BOARD_CODE}:departure`;
+  const arrivalsHealth = health(arrR, arrKey);
+  const departuresHealth = health(depR, depKey);
+  const visible = (key: string) => (lastGood.get(key)?.flights ?? []).filter((f) => inCargoWindow(f, now));
+
+  return {
+    airportCode: CARGO_BOARD_CODE,
+    airportName: '인천 화물기',
+    arrivals: visible(arrKey),
+    departures: visible(depKey),
+    window: { searchday, from: '', to: '' },
+    fetchedAt: new Date(now).toISOString(),
+    health: { arrivals: arrivalsHealth, departures: departuresHealth },
+  };
+}
+
+/** 인천 화물기 보드. 여객 보드와 같은 메모리 캐시·inflight 규칙. */
+export async function getCargoBoard(): Promise<FlightBoard> {
+  const hit = cached.get(CARGO_BOARD_CODE);
+  if (hit && Date.now() - hit.at < CARGO_REVALIDATE_SECONDS * 1000) return hit.board;
+  const pending = inflight.get(CARGO_BOARD_CODE);
+  if (pending) return pending;
+  const p = buildCargo()
+    .then((board) => {
+      cached.set(CARGO_BOARD_CODE, { at: Date.now(), board });
+      return board;
+    })
+    .finally(() => inflight.delete(CARGO_BOARD_CODE));
+  inflight.set(CARGO_BOARD_CODE, p);
   return p;
 }
